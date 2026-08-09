@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EMA · RSI · Fibonacci Reversal Scanner — Bybit / Binance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --bg:#0a0e13; --panel:#10161d; --panel2:#141b23; --border:#212a34;
+  --text:#e7edf3; --sub:#7c8a9a; --amber:#e8a33d; --red:#ff5c5c; --green:#2fd98a; --cyan:#4fc3d9;
+}
+*{box-sizing:border-box;}
+body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 10% -10%, #101823 0%, var(--bg) 55%);color:var(--text);font-family:'JetBrains Mono',monospace;padding:24px 20px 60px;}
+@media(min-width:900px){body{padding:32px 40px 80px;}}
+.header{display:flex;flex-direction:column;gap:4px;margin-bottom:22px;border-bottom:1px solid var(--border);padding-bottom:18px;}
+.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--amber);text-transform:uppercase;}
+.title{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.01em;}
+.subtitle{color:var(--sub);font-size:13px;max-width:640px;line-height:1.5;}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;}
+.field input,.field select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;width:110px;}
+.presetRow{display:flex;gap:6px;}
+.preset{background:var(--panel2);border:1px solid var(--border);color:var(--sub);border-radius:6px;padding:6px 9px;font-size:12px;cursor:pointer;}
+.preset.active{color:var(--amber);border-color:var(--amber);}
+.intervalRow{display:flex;gap:4px;}
+.intervalBtn{background:var(--panel2);border:1px solid var(--border);color:var(--sub);padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+.intervalBtn.active{color:#0a0e13;background:var(--amber);border-color:var(--amber);font-weight:700;}
+.exchangeBtn{background:var(--panel2);border:1px solid var(--border);color:var(--sub);padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;}
+.exchangeBtn.active{color:#0a0e13;background:var(--cyan);border-color:var(--cyan);}
+.scanBtn{margin-left:auto;background:linear-gradient(135deg,var(--red),#d43f3f);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;cursor:pointer;letter-spacing:.02em;}
+.scanBtn:disabled{opacity:.6;cursor:not-allowed;}
+.autoBtn{background:var(--panel2);border:1px solid var(--border);color:var(--sub);border-radius:8px;padding:10px 14px;font-size:12px;cursor:pointer;}
+.autoBtn.active{color:var(--green);border-color:var(--green);}
+.status{font-size:12px;color:var(--sub);margin-bottom:18px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+.progressBar{width:200px;height:4px;background:var(--border);border-radius:4px;overflow:hidden;}
+.progressFill{height:100%;background:var(--amber);transition:width .2s;}
+.errorBox{color:var(--red);font-size:12px;background:#2a1416;border:1px solid #4a2226;padding:10px 14px;border-radius:8px;margin-bottom:16px;white-space:pre-wrap;}
+.sectionTitle{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:26px 0 12px;display:flex;align-items:center;gap:8px;}
+.dot{width:8px;height:8px;border-radius:50%;}
+.dot.red{background:var(--red);box-shadow:0 0 8px var(--red);}
+.dot.amber{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+.dot.cyan{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.dot.green{background:var(--green);box-shadow:0 0 8px var(--green);}
+.card.confirmed{border-color:rgba(79,195,217,.35);}
+.badgeConfirmed{background:rgba(79,195,217,.15);color:var(--cyan);}
+.trendRow{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--sub);background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:7px 9px;}
+.trendRow b{color:var(--text);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.card.triggered{border-color:rgba(255,92,92,.4);box-shadow:0 0 0 1px rgba(255,92,92,.08);}
+.card.armed{border-color:rgba(232,163,61,.3);}
+.cardTop{display:flex;justify-content:space-between;align-items:flex-start;}
+.symbolBlock{display:flex;align-items:baseline;gap:3px;}
+.symbol{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;}
+.quote{font-size:11px;color:var(--sub);}
+.badge{font-size:10px;font-weight:700;padding:4px 8px;border-radius:5px;letter-spacing:.04em;white-space:nowrap;}
+.badgeSell{background:rgba(255,92,92,.15);color:var(--red);}
+.badgeWatch{background:rgba(232,163,61,.15);color:var(--amber);}
+.priceRow{display:flex;justify-content:space-between;gap:10px;}
+.label{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.bigPrice{font-size:15px;font-weight:600;}
+.bigPrice.accent{color:var(--amber);}
+.rsiRow{display:flex;gap:8px;}
+.rsiPill{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;display:flex;flex-direction:column;gap:2px;}
+.rsiPill span{font-size:9px;color:var(--sub);text-transform:uppercase;}
+.rsiPill b{font-size:13px;}
+.rsiPill em{font-size:9px;color:var(--sub);font-style:normal;}
+.metaRow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--sub);border-top:1px solid var(--border);padding-top:10px;}
+.metaRow b{color:var(--text);}
+.empty{border:1px dashed var(--border);border-radius:12px;padding:30px 20px;text-align:center;color:var(--sub);font-size:13px;}
+.chartBtn{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--cyan);border-radius:7px;padding:8px 10px;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.02em;}
+.chartBtn:hover{border-color:var(--cyan);}
+.modalOverlay{display:none;position:fixed;inset:0;background:rgba(5,8,12,.78);z-index:1000;align-items:center;justify-content:center;padding:16px;}
+.modalOverlay.open{display:flex;}
+.modalBox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;width:100%;max-width:980px;max-height:94vh;overflow:auto;}
+.modalHeader{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;}
+.modalClose{background:var(--panel2);border:1px solid var(--border);color:var(--sub);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:14px;}
+#chartContainer{width:100%;height:480px;}
+.modalLegend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--sub);}
+.modalLegend span{display:flex;align-items:center;gap:5px;}
+.modalLegend i{width:12px;height:3px;border-radius:2px;display:inline-block;}
+.modalLegend i.dashed{background:transparent;border-top:2px dashed var(--amber);height:0;}
+.settingsWarn{background:#2a2313;border:1px solid #4a3f22;color:var(--amber);font-size:11.5px;line-height:1.5;padding:10px 12px;border-radius:8px;margin-bottom:14px;}
+.settingsGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.settingsGrid .field{grid-column:span 1;}
+.settingsGrid .field.full{grid-column:1/-1;}
+.settingsGrid .field input,.settingsGrid .field select{width:100%;}
+.settingsRow{display:flex;gap:10px;margin-top:12px;}
+.settingsRow button{flex:1;}
+.testBtn{background:var(--panel2);border:1px solid var(--cyan);color:var(--cyan);border-radius:8px;padding:10px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;cursor:pointer;}
+.settingsStatus{font-size:11.5px;margin-top:10px;min-height:16px;}
+.settingsStatus.ok{color:var(--green);}
+.settingsStatus.err{color:var(--red);}
+.tradeLogBox{border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden;}
+.tradeLogRow{display:grid;grid-template-columns:70px 60px 70px 1fr;gap:10px;padding:8px 12px;font-size:11px;border-bottom:1px solid var(--border);align-items:center;}
+.tradeLogRow:last-child{border-bottom:none;}
+.tlTime{color:var(--sub);}
+.tlSymbol{font-weight:700;}
+.tlLevel{font-weight:700;letter-spacing:.03em;}
+.tradeLog-info .tlLevel{color:var(--cyan);}
+.tradeLog-placed .tlLevel{color:var(--green);}
+.tradeLog-error .tlLevel{color:var(--red);}
+.tradeLog-skipped .tlLevel{color:var(--amber);}
+.tlMsg{color:var(--text);word-break:break-word;}
+.accountBalanceRow{display:flex;gap:16px;margin-bottom:14px;}
+.accountBalanceCard{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.accountBalanceCard .label{margin-bottom:4px;}
+.accountBalanceCard .bigPrice{font-size:17px;}
+.posTable{width:100%;border-collapse:collapse;font-size:11.5px;}
+.posTable th{text-align:left;color:var(--sub);font-weight:600;text-transform:uppercase;font-size:9.5px;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--border);}
+.posTable td{padding:8px;border-bottom:1px solid var(--border);}
+.posTable tr:last-child td{border-bottom:none;}
+.posSide.Sell{color:var(--red);font-weight:700;}
+.posSide.Buy{color:var(--green);font-weight:700;}
+.pnlPos{color:var(--green);}
+.pnlNeg{color:var(--red);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">USDT Perpetual (Linear) · Runs on the server (Railway)</div>
+  <div class="title">EMA · RSI · Fibonacci Reversal Scanner</div>
+  <div class="subtitle">Scans top pairs by 24h volume for the bullish EMA20/50 cross → oversold → overbought → fib‑retest sequence, and flags the resulting SELL zone. Scanning and auto-trade run on the server, so they keep working even if you close this browser tab.</div>
+</div>
+
+<div class="controls">
+  <div class="field">
+    <label>Exchange</label>
+    <div class="presetRow" id="exchangeRow"></div>
+  </div>
+  <div class="field">
+    <label>Top N by volume</label>
+    <input id="topN" type="number" min="10" max="300" value="100" />
+  </div>
+  <div class="presetRow" id="presetRow"></div>
+  <div class="intervalRow" id="intervalRow"></div>
+  <div class="field" style="flex-direction:row;align-items:center;gap:6px;">
+    <input id="cleanLineChk" type="checkbox" checked style="width:16px;height:16px;" />
+    <label style="text-transform:none;font-size:11px;" for="cleanLineChk">Clean line only (T1→T2 not pre-broken)</label>
+  </div>
+  <button class="autoBtn" id="autoBtn">▶ Auto-scan</button>
+  <button class="autoBtn" id="settingsBtn">⚙ Settings</button>
+  <button class="autoBtn" id="accountBtn">📊 Account</button>
+  <button class="scanBtn" id="scanBtn">Scan Now</button>
+</div>
+
+<div id="errorBox"></div>
+<div class="status" id="statusRow"></div>
+
+<div class="sectionTitle"><span class="dot red"></span> Sell Signals (trend line broken + closed)</div>
+<div class="grid" id="signalsGrid"></div>
+<div class="empty" id="signalsEmpty">Run a scan to look for signals.</div>
+
+<div class="sectionTitle"><span class="dot cyan"></span> Confirmed (fib retest done — watching trend line break)</div>
+<div class="grid" id="confirmedGrid"></div>
+<div class="empty" id="confirmedEmpty">—</div>
+
+<div class="sectionTitle"><span class="dot amber"></span> Watching (setup armed, waiting for cross / fib retest)</div>
+<div class="grid" id="watchGrid"></div>
+<div class="empty" id="watchEmpty">—</div>
+
+<div class="sectionTitle"><span class="dot green"></span> Auto-Trade Log</div>
+<div class="tradeLogBox" id="tradeLogBody"><div class="empty">No auto-trade activity yet.</div></div>
+
+<div class="modalOverlay" id="settingsModalOverlay">
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHeader"><span>⚙ Settings</span><button class="modalClose" id="settingsCloseBtn">✕</button></div>
+    <div class="settingsWarn">⚠ Real money risk. All settings below (including API Key/Secret) are saved on YOUR Railway server only — never sent anywhere else. Anyone with access to your Railway project/dashboard can see them.</div>
+    <div class="settingsGrid">
+      <div class="field full">
+        <label>Exchange</label>
+        <select id="setExchange"><option value="bybit">Bybit</option><option value="binance">Binance</option></select>
+      </div>
+      <div class="field full"><label>API Key</label><input id="setApiKey" type="text" autocomplete="off" /></div>
+      <div class="field full"><label>API Secret</label><input id="setApiSecret" type="password" autocomplete="off" /></div>
+      <div class="field full" style="flex-direction:row;align-items:center;gap:6px;"><input id="setTestnet" type="checkbox" style="width:16px;height:16px;" /><label style="text-transform:none;font-size:12px;" for="setTestnet">Testnet (fake money — test here first)</label></div>
+      <div class="field full" style="flex-direction:row;align-items:center;gap:6px;"><input id="setAutoTrade" type="checkbox" style="width:16px;height:16px;" /><label style="text-transform:none;font-size:12px;color:var(--red);" for="setAutoTrade">Auto-Trade ON — places REAL market SELL orders automatically on new signals</label></div>
+      <div class="field"><label>Position size (USDT margin)</label><input id="setPositionSize" type="number" min="1" step="1" /></div>
+      <div class="field"><label>Leverage</label><input id="setLeverage" type="number" min="1" max="100" step="1" /></div>
+      <div class="field"><label>Stop Loss %</label><input id="setSlPct" type="number" min="0.1" step="0.1" /></div>
+      <div class="field"><label>Take Profit %</label><input id="setTpPct" type="number" min="0.1" step="0.1" /></div>
+      <div class="field full"><label>Max new trades per scan</label><input id="setMaxTrades" type="number" min="1" max="20" step="1" /></div>
+      <div class="field full"><label>Proxy URL (static IP for the exchange whitelist — e.g. QuotaGuard Static URL)</label><input id="setProxyUrl" type="text" placeholder="http://user:pass@host:port" autocomplete="off" /></div>
+      <div class="field full">
+        <label>Proxy applies to</label>
+        <select id="setProxyAppliesTo">
+          <option value="binance">Binance only</option>
+          <option value="bybit">Bybit only</option>
+          <option value="both">Both</option>
+          <option value="none">None (no proxy)</option>
+        </select>
+      </div>
+    </div>
+    <div class="settingsRow">
+      <button class="testBtn" id="settingsTestBtn">Test Connection</button>
+      <button class="scanBtn" id="settingsSaveBtn">Save Settings</button>
+    </div>
+    <div class="settingsStatus" id="settingsStatus"></div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="accountModalOverlay">
+  <div class="modalBox" style="max-width:640px;">
+    <div class="modalHeader"><span>📊 Account · Portfolio &amp; Margin</span><button class="modalClose" id="accountCloseBtn">✕</button></div>
+    <div id="accountBody"><div class="empty">Open this while your API Key is saved in Settings — click Refresh below.</div></div>
+    <button class="testBtn" id="accountRefreshBtn" style="width:100%;margin-top:12px;">Refresh</button>
+  </div>
+</div>
+
+<div class="modalOverlay" id="chartModalOverlay">
+  <div class="modalBox">
+    <div class="modalHeader"><span id="chartModalTitle"></span><button class="modalClose" id="chartModalCloseBtn">✕</button></div>
+    <div id="chartContainer"></div>
+    <div class="modalLegend">
+      <span><i style="background:var(--cyan)"></i> EMA20</span>
+      <span><i style="background:var(--amber)"></i> EMA50</span>
+      <span><i style="background:var(--red)"></i> Trend line (T1→T2, extended)</span>
+      <span><i style="background:#8a97a5;border-top:1px dashed #8a97a5;"></i> Horizontal (from T1)</span>
+      <span><i class="dashed"></i> Fib 0.5</span>
+      <span><i style="background:var(--red);border-top:2px dashed var(--red);"></i> Fib 0.618</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+/* ============================== state ============================== */
+let settings = null;       // loaded from /api/settings
+let topN = 100;
+let interval = "15m";
+let scanning = false;
+let polling = null;
+let signals = [], confirmed = [], watching = [];
+let lastScanAt = null;
+
+const INTERVALS = [{v:"1m",l:"1m"},{v:"5m",l:"5m"},{v:"15m",l:"15m"},{v:"30m",l:"30m"},{v:"1h",l:"1H"},{v:"4h",l:"4H"},{v:"1d",l:"1D"}];
+const PRESETS = [30,50,100,200,300];
+const EXCHANGES = [{v:"bybit",l:"Bybit"},{v:"binance",l:"Binance"}];
+
+function formatPrice(p){
+  if(p==null||!isFinite(p)) return "-";
+  const abs=Math.abs(p); let decimals=2;
+  if(abs<1) decimals=5; if(abs<0.01) decimals=7; if(abs<0.0001) decimals=9;
+  return p.toLocaleString("en-US",{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+function formatTime(t){ if(!t) return "-"; return new Date(t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}); }
+
+/* ============================== settings load/save ============================== */
+async function loadSettings(){
+  const res = await fetch("/api/settings");
+  settings = await res.json();
+  topN = settings.topN; interval = settings.interval;
+  renderControls();
+}
+async function saveSettingsFromForm(){
+  const body = {
+    exchange: document.getElementById("setExchange").value,
+    apiKey: document.getElementById("setApiKey").value.trim(),
+    apiSecret: document.getElementById("setApiSecret").value.trim(),
+    testnet: document.getElementById("setTestnet").checked,
+    autoTrade: document.getElementById("setAutoTrade").checked,
+    positionSizeUsdt: Math.max(1, +document.getElementById("setPositionSize").value || 20),
+    leverage: Math.max(1, Math.min(100, +document.getElementById("setLeverage").value || 3)),
+    slPct: Math.max(0.1, +document.getElementById("setSlPct").value || 3),
+    tpPct: Math.max(0.1, +document.getElementById("setTpPct").value || 6),
+    maxTradesPerRun: Math.max(1, Math.min(20, +document.getElementById("setMaxTrades").value || 3)),
+    proxyUrl: document.getElementById("setProxyUrl").value.trim(),
+    proxyAppliesTo: document.getElementById("setProxyAppliesTo").value,
+  };
+  await fetch("/api/settings", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  await loadSettings();
+}
+
+function openSettingsModal(){
+  document.getElementById("setExchange").value = settings.exchange;
+  document.getElementById("setApiKey").value = settings.apiKey;
+  document.getElementById("setApiSecret").value = settings.apiSecret; // masked placeholder if already set
+  document.getElementById("setTestnet").checked = !!settings.testnet;
+  document.getElementById("setAutoTrade").checked = !!settings.autoTrade;
+  document.getElementById("setPositionSize").value = settings.positionSizeUsdt;
+  document.getElementById("setLeverage").value = settings.leverage;
+  document.getElementById("setSlPct").value = settings.slPct;
+  document.getElementById("setTpPct").value = settings.tpPct;
+  document.getElementById("setMaxTrades").value = settings.maxTradesPerRun;
+  document.getElementById("setProxyUrl").value = settings.proxyUrl || "";
+  document.getElementById("setProxyAppliesTo").value = settings.proxyAppliesTo || "binance";
+  document.getElementById("settingsStatus").textContent = "";
+  document.getElementById("settingsStatus").className = "settingsStatus";
+  document.getElementById("settingsModalOverlay").classList.add("open");
+}
+function closeSettingsModal(){ document.getElementById("settingsModalOverlay").classList.remove("open"); }
+
+document.getElementById("settingsBtn").addEventListener("click", openSettingsModal);
+document.getElementById("settingsCloseBtn").addEventListener("click", closeSettingsModal);
+document.getElementById("settingsModalOverlay").addEventListener("click", e=>{ if(e.target.id==="settingsModalOverlay") closeSettingsModal(); });
+document.getElementById("settingsSaveBtn").addEventListener("click", async ()=>{
+  await saveSettingsFromForm();
+  const el = document.getElementById("settingsStatus");
+  el.textContent = "✓ Saved. " + (settings.autoTrade ? "Auto-trade is ON — real orders will fire on new signals." : "Auto-trade is OFF (scanning only).");
+  el.className = "settingsStatus ok";
+});
+document.getElementById("settingsTestBtn").addEventListener("click", async ()=>{
+  const el = document.getElementById("settingsStatus");
+  el.textContent = "Testing connection…"; el.className = "settingsStatus";
+  const body = {
+    exchange: document.getElementById("setExchange").value,
+    apiKey: document.getElementById("setApiKey").value.trim(),
+    apiSecret: document.getElementById("setApiSecret").value.trim(),
+    testnet: document.getElementById("setTestnet").checked,
+    proxyUrl: document.getElementById("setProxyUrl").value.trim(),
+    proxyAppliesTo: document.getElementById("setProxyAppliesTo").value,
+  };
+  try{
+    const res = await fetch("/api/settings/test", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    const data = await res.json();
+    if(!res.ok || !data.ok) throw new Error(data.error || "Test failed");
+    el.textContent = `✓ Connected (${data.mode}). USDT wallet balance: ${data.balance}`;
+    el.className = "settingsStatus ok";
+  }catch(e){
+    el.textContent = "✗ " + e.message;
+    el.className = "settingsStatus err";
+  }
+});
+
+/* ============================== account modal ============================== */
+function openAccountModal(){ document.getElementById("accountModalOverlay").classList.add("open"); refreshAccountInfo(); }
+function closeAccountModal(){ document.getElementById("accountModalOverlay").classList.remove("open"); }
+async function refreshAccountInfo(){
+  const el = document.getElementById("accountBody");
+  el.innerHTML = `<div class="empty">Loading…</div>`;
+  try{
+    const res = await fetch("/api/account");
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Failed to load account");
+    let html = `<div class="accountBalanceRow">
+      <div class="accountBalanceCard"><div class="label">USDT Wallet Balance</div><div class="bigPrice">${data.balance}</div></div>
+      <div class="accountBalanceCard"><div class="label">Mode</div><div class="bigPrice">${data.testnet?"Testnet":"Mainnet (real money)"}</div></div>
+      <div class="accountBalanceCard"><div class="label">Open Positions</div><div class="bigPrice">${data.positions.length}</div></div>
+    </div>`;
+    if(data.positions.length){
+      html += `<table class="posTable"><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th>Lev</th></tr></thead><tbody>`;
+      html += data.positions.map(p=>{
+        const pnl = parseFloat(p.unrealisedPnl||0);
+        return `<tr><td>${p.symbol.replace("USDT","")}</td><td class="posSide ${p.side}">${p.side}</td><td>${p.size}</td><td>${formatPrice(parseFloat(p.avgPrice))}</td><td>${formatPrice(parseFloat(p.markPrice))}</td><td class="${pnl>=0?'pnlPos':'pnlNeg'}">${pnl.toFixed(2)} USDT</td><td>${p.leverage}x</td></tr>`;
+      }).join("");
+      html += `</tbody></table>`;
+    } else { html += `<div class="empty">No open positions right now.</div>`; }
+    el.innerHTML = html;
+  }catch(e){ el.innerHTML = `<div class="errorBox">⚠ ${e.message}</div>`; }
+}
+document.getElementById("accountBtn").addEventListener("click", openAccountModal);
+document.getElementById("accountCloseBtn").addEventListener("click", closeAccountModal);
+document.getElementById("accountRefreshBtn").addEventListener("click", refreshAccountInfo);
+document.getElementById("accountModalOverlay").addEventListener("click", e=>{ if(e.target.id==="accountModalOverlay") closeAccountModal(); });
+
+/* ============================== controls ============================== */
+function renderControls(){
+  const exchangeRow = document.getElementById("exchangeRow");
+  exchangeRow.innerHTML = EXCHANGES.map(x=>`<div class="preset exchangeBtn ${settings.exchange===x.v?'active':''}" data-v="${x.v}">${x.l}</div>`).join("");
+  exchangeRow.querySelectorAll(".exchangeBtn").forEach(el=>{
+    el.onclick = async ()=>{ settings.exchange = el.dataset.v; await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({exchange:settings.exchange})}); renderControls(); };
+  });
+  const presetRow = document.getElementById("presetRow");
+  presetRow.innerHTML = PRESETS.map(n=>`<div class="preset ${topN===n?'active':''}" data-n="${n}">${n}</div>`).join("");
+  presetRow.querySelectorAll(".preset:not(.exchangeBtn)").forEach(el=>{
+    el.onclick = async ()=>{ topN=+el.dataset.n; document.getElementById("topN").value=topN; await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topN})}); renderControls(); };
+  });
+  const intervalRow = document.getElementById("intervalRow");
+  intervalRow.innerHTML = INTERVALS.map(iv=>`<div class="intervalBtn ${interval===iv.v?'active':''}" data-v="${iv.v}">${iv.l}</div>`).join("");
+  intervalRow.querySelectorAll(".intervalBtn").forEach(el=>{
+    el.onclick = async ()=>{ interval=el.dataset.v; await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({interval})}); renderControls(); };
+  });
+  document.getElementById("scanBtn").disabled = scanning;
+  document.getElementById("scanBtn").textContent = scanning?"Scanning…":"Scan Now";
+  const autoBtn = document.getElementById("autoBtn");
+  autoBtn.textContent = settings.autoScan?"⏸ Auto-scan ON (server, 5m)":"▶ Auto-scan";
+  autoBtn.className = "autoBtn"+(settings.autoScan?" active":"");
+}
+document.getElementById("topN").addEventListener("change", async e=>{
+  topN = Math.min(300, Math.max(10, +e.target.value||10));
+  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topN})});
+  renderControls();
+});
+document.getElementById("cleanLineChk").addEventListener("change", async e=>{
+  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({requireCleanLine:e.target.checked})});
+});
+document.getElementById("autoBtn").addEventListener("click", async ()=>{
+  settings.autoScan = !settings.autoScan;
+  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({autoScan:settings.autoScan})});
+  renderControls();
+  if(settings.autoScan) startPolling();
+});
+
+/* ============================== fib ladder + cards ============================== */
+function trendAngleDeg(s){
+  if(s.lineSlope==null||s.t1Price==null) return null;
+  const pctPerCandle=(s.lineSlope/s.t1Price)*100;
+  return Math.atan(pctPerCandle)*(180/Math.PI);
+}
+function fibLadderHTML(s){
+  const top=s.p1, bottom=s.p2, range=(top-bottom)||1;
+  const pos=v=>((top-v)/range)*100;
+  const markPrice = s.status==="TRIGGERED" ? s.entryPrice : (s.fibTouchIdx!=null ? s.target : null);
+  return `<div style="padding:4px 0;"><div style="position:relative;height:90px;margin:0 60px 0 4px;border-left:2px solid var(--border);">
+    <div style="position:absolute;left:${pos(top)}%;width:100%"></div>
+  </div></div>
+  <div class="trendRow"><span>P1 <b>${formatPrice(top)}</b></span>${s.targetLabel?`<span>0.618 <b>${formatPrice(s.lvl618)}</b></span><span>0.5 <b>${formatPrice(s.lvl5)}</b></span>`:""}<span>P2/T1 <b>${formatPrice(bottom)}</b></span></div>`;
+}
+function cardHTML(s){
+  const isTriggered = s.status==="TRIGGERED", isConfirmed = s.status==="CONFIRMED", hasCross = s.r1!=null;
+  const badgeClass = isTriggered?'badgeSell':(isConfirmed?'badgeConfirmed':'badgeWatch');
+  const badgeText = isTriggered?'SELL SIGNAL':(isConfirmed?'CONFIRMED · WATCHING BREAK':'WATCHING');
+  const cardClass = isTriggered?'triggered':(isConfirmed?'confirmed':'armed');
+  const stepLabel = isTriggered?'Step 3/3 · Trend line closed below':isConfirmed?'Step 2/3 done · Fib touched at cross, watching trend line':'Watching for EMA20/50 cross';
+  return `<div class="card ${cardClass}">
+    <div class="cardTop"><div class="symbolBlock"><span class="symbol">${s.symbol.replace('USDT','')}</span><span class="quote">/USDT</span></div><div class="badge ${badgeClass}">${badgeText}</div></div>
+    <div class="priceRow"><div><div class="label">Last Price</div><div class="bigPrice">${formatPrice(s.price)}</div></div><div><div class="label">${isTriggered?'Entry Price':'Fib Target'}</div><div class="bigPrice accent">${isTriggered?formatPrice(s.entryPrice):(hasCross?formatPrice(s.target):'Awaiting cross')}</div></div></div>
+    <button class="chartBtn" onclick="openChart('${s.symbol}')">📈 View Chart (trend line + EMA + fib)</button>
+    ${hasCross?fibLadderHTML(s):""}
+    <div class="rsiRow"><div class="rsiPill"><span>R3</span><b>${s.r3.toFixed(1)}</b><em>${formatTime(s.r3Time)}</em></div><div class="rsiPill"><span>R2</span><b>${s.r2.toFixed(1)}</b><em>${formatTime(s.r2Time)}</em></div><div class="rsiPill"><span>R1</span><b>${hasCross?s.r1.toFixed(1):'—'}</b><em>${hasCross?formatTime(s.r1Time):'not yet'}</em></div></div>
+    <div class="metaRow"><span>${stepLabel}</span>${isTriggered?`<span>Entry: <b>${formatTime(s.entryTime)}</b></span>`:(s.fibTouchIdx!=null?`<span>Fib touch: <b>${formatTime(s.fibTouchTime)}</b></span>`:"")}</div>
+  </div>`;
+}
+function renderResults(){
+  const sg=document.getElementById("signalsGrid"), se=document.getElementById("signalsEmpty");
+  sg.innerHTML = signals.map(cardHTML).join(""); se.style.display = signals.length?"none":"block";
+  se.textContent = lastScanAt ? "No completed sell signals this scan. Check Confirmed / Watching below." : "Run a scan to look for signals.";
+  const cg=document.getElementById("confirmedGrid"), ce=document.getElementById("confirmedEmpty");
+  cg.innerHTML = confirmed.map(cardHTML).join(""); ce.style.display = confirmed.length?"none":"block";
+  ce.textContent = lastScanAt ? "Nothing confirmed right now." : "—";
+  const wg=document.getElementById("watchGrid"), we=document.getElementById("watchEmpty");
+  wg.innerHTML = watching.map(cardHTML).join(""); we.style.display = watching.length?"none":"block";
+  we.textContent = lastScanAt ? "Nothing armed right now." : "—";
+}
+function renderStatus(progressDone, progressTotal){
+  const el = document.getElementById("statusRow");
+  let html = "";
+  if(scanning){
+    const pct = progressTotal ? (100*progressDone/progressTotal) : 0;
+    html += `<span>${progressDone}/${progressTotal} pairs analyzed</span><div class="progressBar"><div class="progressFill" style="width:${pct}%"></div></div>`;
+  } else if(lastScanAt){
+    html += `<span>Last scan: ${new Date(lastScanAt).toLocaleTimeString()}</span><span>${signals.length} signal${signals.length!==1?'s':''} · ${confirmed.length} confirmed · ${watching.length} watching</span>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ============================== trade log ============================== */
+async function refreshTradeLog(){
+  const res = await fetch("/api/tradelog");
+  const log = await res.json();
+  const el = document.getElementById("tradeLogBody");
+  if(!log.length){ el.innerHTML = `<div class="empty">No auto-trade activity yet.</div>`; return; }
+  el.innerHTML = log.map(t=>`<div class="tradeLogRow tradeLog-${t.level.toLowerCase()}"><span class="tlTime">${new Date(t.time).toLocaleTimeString()}</span><span class="tlSymbol">${t.symbol?t.symbol.replace("USDT",""):"—"}</span><span class="tlLevel">${t.level}</span><span class="tlMsg">${t.message}</span></div>`).join("");
+}
+
+/* ============================== scan (runs on the server) ============================== */
+async function handleScan(){
+  scanning = true; renderControls(); document.getElementById("errorBox").innerHTML="";
+  await fetch("/api/scan", { method:"POST" });
+  startPolling();
+}
+function startPolling(){
+  if(polling) return;
+  polling = setInterval(pollScan, 1500);
+  pollScan();
+}
+async function pollScan(){
+  const res = await fetch("/api/scan/last");
+  const data = await res.json();
+  scanning = data.scanning;
+  signals = data.signals; confirmed = data.confirmed; watching = data.watching;
+  lastScanAt = data.lastScanAt;
+  if(data.error) document.getElementById("errorBox").innerHTML = `<div class="errorBox">⚠ ${data.error}</div>`;
+  renderStatus(data.progressDone, data.progressTotal);
+  renderResults();
+  renderControls();
+  refreshTradeLog();
+  if(!scanning && !settings.autoScan){ clearInterval(polling); polling=null; }
+}
+document.getElementById("scanBtn").addEventListener("click", handleScan);
+
+/* ============================== chart modal ============================== */
+let activeChart = null;
+function findSetupBySymbol(symbol){ return signals.find(s=>s.symbol===symbol) || confirmed.find(s=>s.symbol===symbol) || watching.find(s=>s.symbol===symbol); }
+function closeChart(){
+  document.getElementById("chartModalOverlay").classList.remove("open");
+  if(activeChart){ activeChart.remove(); activeChart=null; }
+  document.getElementById("chartContainer").innerHTML = "";
+  window.removeEventListener("resize", resizeChartHandler);
+}
+function resizeChartHandler(){ if(!activeChart) return; const c=document.getElementById("chartContainer"); activeChart.applyOptions({width:c.clientWidth}); }
+
+async function openChart(symbol){
+  const res = await fetch("/api/klines?symbol="+encodeURIComponent(symbol));
+  const cache = await res.json();
+  if(!cache || !cache.candles){ alert("No chart data for this symbol."); return; }
+  const s = findSetupBySymbol(symbol);
+
+  document.getElementById("chartModalTitle").textContent = symbol.replace("USDT","") + " / USDT · " + interval;
+  document.getElementById("chartModalOverlay").classList.add("open");
+  const container = document.getElementById("chartContainer");
+  container.innerHTML = "";
+  if(activeChart){ activeChart.remove(); activeChart=null; }
+
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth, height: 480,
+    layout:{ background:{color:"#10161d"}, textColor:"#c7d2dc" },
+    grid:{ vertLines:{color:"#1c242d"}, horzLines:{color:"#1c242d"} },
+    timeScale:{ timeVisible:true, secondsVisible:false, borderColor:"#212a34" },
+    rightPriceScale:{ borderColor:"#212a34" },
+    crosshair:{ mode: LightweightCharts.CrosshairMode.Normal }
+  });
+  activeChart = chart;
+  const candleSeries = chart.addCandlestickSeries({ upColor:"#2fd98a", downColor:"#ff5c5c", borderVisible:false, wickUpColor:"#2fd98a", wickDownColor:"#ff5c5c" });
+  const cData = cache.candles.map(c=>({ time:Math.floor(c.time/1000), open:c.open, high:c.high, low:c.low, close:c.close }));
+  candleSeries.setData(cData);
+
+  if(cache.ema20){
+    const ema20Series = chart.addLineSeries({ color:"#4fc3d9", lineWidth:1, title:"EMA20", priceLineVisible:false, lastValueVisible:false });
+    ema20Series.setData(cache.candles.map((c,i)=>({ time:Math.floor(c.time/1000), value:cache.ema20[i] })).filter(d=>d.value!=null));
+    const ema50Series = chart.addLineSeries({ color:"#e8a33d", lineWidth:1, title:"EMA50", priceLineVisible:false, lastValueVisible:false });
+    ema50Series.setData(cache.candles.map((c,i)=>({ time:Math.floor(c.time/1000), value:cache.ema50[i] })).filter(d=>d.value!=null));
+  }
+
+  const markers = [];
+  if(s && s.p1!=null && s.p2!=null){
+    if(s.lvl5!=null) candleSeries.createPriceLine({ price:s.lvl5, color:"#e8a33d", lineWidth:1, lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"Fib 0.5" });
+    if(s.lvl618!=null) candleSeries.createPriceLine({ price:s.lvl618, color:"#ff5c5c", lineWidth:1, lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"Fib 0.618" });
+  }
+  if(s && s.t1Idx!=null && s.t2Idx!=null && s.lineSlope!=null){
+    const endIdx = s.entryIdx!=null ? s.entryIdx : cache.candles.length-1;
+    const lineData = [];
+    for(let k=s.t1Idx; k<=endIdx; k++){ lineData.push({ time:Math.floor(cache.candles[k].time/1000), value:s.t1Price + s.lineSlope*(k-s.t1Idx) }); }
+    const trendSeries = chart.addLineSeries({ color:"#ff5c5c", lineWidth:2, title:"Trend line", priceLineVisible:false, lastValueVisible:false });
+    trendSeries.setData(lineData);
+    markers.push({ time:Math.floor(cache.candles[s.t1Idx].time/1000), position:"belowBar", color:"#e8a33d", shape:"circle", text:"T1" });
+    markers.push({ time:Math.floor(cache.candles[s.t2Idx].time/1000), position:"aboveBar", color:"#4fc3d9", shape:"circle", text:"T2" });
+    if(s.fibTouchIdx!=null) markers.push({ time:Math.floor(cache.candles[s.fibTouchIdx].time/1000), position:"aboveBar", color:"#e8a33d", shape:"circle", text:"Fib touch" });
+    if(s.entryIdx!=null) markers.push({ time:Math.floor(cache.candles[s.entryIdx].time/1000), position:"aboveBar", color:"#ff5c5c", shape:"arrowDown", text:"Line broken · SELL" });
+  }
+  if(markers.length){ markers.sort((a,b)=>a.time-b.time); candleSeries.setMarkers(markers); }
+  chart.timeScale().fitContent();
+  window.addEventListener("resize", resizeChartHandler);
+}
+document.getElementById("chartModalCloseBtn").addEventListener("click", closeChart);
+document.getElementById("chartModalOverlay").addEventListener("click", e=>{ if(e.target.id==="chartModalOverlay") closeChart(); });
+
+/* ============================== init ============================== */
+(async function init(){
+  await loadSettings();
+  await pollScan(); // shows any results from a scan already running on the server
+  refreshTradeLog();
+  if(settings.autoScan) startPolling();
+})();
+</script>
+</body>
+</html>
