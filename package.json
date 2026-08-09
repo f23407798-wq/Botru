@@ -1,0 +1,17 @@
+{
+  "name": "ema-rsi-fib-scanner",
+  "version": "1.0.0",
+  "description": "EMA/RSI/Fibonacci reversal scanner with auto-trade, for Bybit and Binance USDT perpetuals. Runs server-side so scans/trades continue even with the browser closed.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0",
+    "https-proxy-agent": "^7.0.4"
+  }
+}
